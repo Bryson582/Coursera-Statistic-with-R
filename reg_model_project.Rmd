@@ -1,0 +1,101 @@
+---
+title: "Modeling and prediction for movies"
+output: 
+  html_document: 
+    fig_height: 4
+    highlight: pygments
+    theme: spacelab
+---
+
+## Setup
+
+### Load packages
+
+```{r load-packages, message = FALSE}
+library(ggplot2)
+library(dplyr)
+library(statsr)
+```
+
+### Load data
+
+
+```{r load-data}
+load("movies.Rdata")
+```
+
+
+
+* * * 
+
+## Part 1: Data
+Generalizability In the beginning,The data set is comprised of 651 randomly sampled movies produced and released before 2016.Every single movie has the equal chance to be selected to ensure represent all the movies in the United States.We can conclude random sampling was used in this process.The method is valid but not sampling methods. But since all movies used to represent the cross-section country, I think  movies_data now can generalized to the U.S. movies.
+Causality Because the data is observational, not experimental, and no random assigment was assigned to the sample, we can therefore only find correlation. Causality cannot be found.
+
+* * *
+
+## Part 2: Research question
+As we all know,affectting one movie's evaluation score has a lot of reasons.So I just pick up three probabilty causes.
+title_type:the type of movie will have affect the feelings about the score given by audience.
+runtime:sometimes we will consider about the length of movies.Neither too long nor too short is bad.
+thtr_rel_year:We have to know that sometimes the evaluation scores movies will change with years going.
+And we pick up audience_score(Audience score on Rotten Tomatoes) as our response variable to check the relationships between the audience_score and other three explantory variables.
+
+
+* * *
+
+## Part 3: Exploratory data analysis
+
+```{r}
+summary(movies$title_type)
+summary(movies$runtime)
+summary(movies$thtr_rel_year)
+#We can see that there is one NA in the runtime,so we are going to throw it.
+movies_1<-movies%>% filter(!(is.na(runtime)))
+#here is runtime without NA
+summary(movies_1$runtime)
+ggplot(data = movies_1,mapping = aes(x=title_type,y=audience_score))+geom_boxplot(col=c("red","green","purple"))
+#So we can see that there are too many TV movies in the dataset
+ggplot(data = movies_1,mapping = aes(x=runtime,y=audience_score))+geom_point()
+#the majority of runtime are around 100min.
+ggplot(data = movies_1,mapping = aes(x=thtr_rel_year,y=audience_score))+geom_point()
+#the relationship between year and score is not liner,the point on the scatterplot is chaotic.
+
+
+
+```
+
+
+* * *
+
+## Part 4: Modeling
+
+```{r}
+m_full <- lm(audience_score ~ title_type + runtime + thtr_rel_year ,data = movies_1)
+summary(m_full)
+ggplot(data = m_full, aes(sample = .resid)) +
+  stat_qq()
+```
+
+
+* * *
+
+## Part 5: Prediction
+
+```{r}
+#I would like to predict a Chinese movie called 'Crouching Tiger, Hidden Dragon',it was released in 2000 and runtime is 120min.
+#Fistly,we need to create a new model for this.
+new<- data.frame( title_type="Feature Film",thtr_rel_year=2000,runtime=120)
+#Then, I can do the prediction using the `predict` function:
+predict(m_full, new, interval = "prediction", level = 0.90)
+#Hence, the model predicts, with 90% confidence, that 'Crouching Tiger, Hidden Dragon' with a 120min runtime feature film released in 2000 expected to have an evaluation score between 32.3 to 93.89
+```
+
+
+* * *
+
+## Part 6: Conclusion
+```{r}
+#We can see that the range of our prediction is a little bit large.Becaues in our model Adjusted R-squared is 0.1493,which is not very large.So explanatory variables we picked up were not very good.There is a weak relationship between audience score and title types,runtime and released year.So I think using these data to predict in our model will not be a good idea.But we can also conclude that our audience score is relatively objective. 
+```
+

@@ -1,0 +1,336 @@
+---
+title: "Peer Assessment II"
+output:
+  html_document: 
+    pandoc_args: [
+      "--number-sections",
+    ]
+---
+
+# Background
+
+As a statistical consultant working for a real estate investment firm, your task is to develop a model to predict the selling price of a given home in Ames, Iowa. Your employer hopes to use this information to help assess whether the asking price of a house is higher or lower than the true value of the house. If the home is undervalued, it may be a good investment for the firm.
+
+# Training Data and relevant packages
+
+In order to better assess the quality of the model you will produce, the data have been randomly divided into three separate pieces: a training data set, a testing data set, and a validation data set. For now we will load the training data set, the others will be loaded and used later.
+
+```{r load, message = FALSE}
+load("ames_train.Rdata")
+```
+
+Use the code block below to load any necessary packages
+
+```{r packages, message = FALSE}
+library(statsr)
+library(dplyr)
+library(BAS)
+library(devtools)
+library(ggplot2)
+library(forcats)
+library(scales)
+library(MASS)
+```
+
+## Part 1 - Exploratory Data Analysis (EDA)
+
+When you first get your data, it's very tempting to immediately begin fitting models and assessing how they perform.  However, before you begin modeling, it's absolutely essential to explore the structure of the data and the relationships between the variables in the data set.
+
+Do a detailed EDA of the ames_train data set, to learn about the structure of the data and the relationships between the variables in the data set (refer to Introduction to Probability and Data, Week 2, for a reminder about EDA if needed). Your EDA should involve creating and reviewing many plots/graphs and considering the patterns and relationships you see. 
+
+After you have explored completely, submit the three graphs/plots that you found most informative during your EDA process, and briefly explain what you learned from each (why you found each informative).
+
+* * *
+
+```{r creategraphs}
+head(ames_train)
+summary(ames_train)
+str(ames_train)
+colSums(is.na(ames_train) , na.rm = TRUE , dims = 1) # the amount of NA
+```
+We can first use head/summary/str function to see our dataset "ames_train"
+```{r}
+ames_train <- ames_train %>%
+  mutate(House.Age = 2020 - Year.Built) # 2020 because that is the current year
+ggplot(data = ames_train, aes(x = House.Age)) +
+  geom_histogram(bins = 30,col=c("yellow")) +
+  labs(title = "Age of the houses in years", x = "Age of building", y = "Number of houses") +
+  scale_x_continuous(breaks = seq(5,160,20))
+```
+In this diagram, we can see that the age of building for the majority of houses is between 10 and 85 years, furthermore apparently the number of houses built in approximately 10 years is the highest, reaching about 175.
+```{r}
+ames_train %>%
+  mutate(Neighborhood = fct_reorder(Neighborhood, price, .fun = "median")) %>%
+ggplot(aes(x = Neighborhood, y = price, fill = Neighborhood)) +
+  geom_boxplot(alpha = 0.4) +
+  labs(title = "Home price in neigborhoods", x = "Neighborhoods", y = "House price ") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.1), legend.position = "none")
+```
+In this diagram, we can see that in the box plot that different neighborhoods has different cirumstances about the price of the houses. the price of  "NrighHt" and "StoneBr" is the highest in all neighborhoods. On the contrary, the price of "MeadowV" is the lowest among all neighborhoods. There is not a huge difference in the house prices in different neighborhoods, 
+```{r}
+ggplot(data = ames_train,mapping = aes(x = price, y=..density..))+geom_histogram(col=c("red"),bins = 100) 
+```
+The distribution is nearly normal, slighly right skewed, and this was expected (no house can cost less than zero, but their price is theoretically limitless).There are many features that are or can be related to the variation of the prices.
+```{r}
+library(GGally)
+demo1 <- c("price","area","Lot.Area","Overall.Qual","Overall.Cond", "House.Age","Year.Remod.Add","Total.Bsmt.SF","X1st.Flr.SF","X2nd.Flr.SF","Bedroom.AbvGr","TotRms.AbvGrd","Garage.Area")
+demo_new <- ames_train[demo1]
+ggcorr(demo_new)
+```
+We can see that the correlation of all numerica variables in this plot, and we will remove these variables with pale color.
+We will select area,Overall.Qual,House.Age,Total.Bsmt.SF,Garage.Area
+
+* * *
+
+## Part 2 - Development and assessment of an initial model, following a semi-guided process of analysis
+
+### Section 2.1 An Initial Model
+In building a model, it is often useful to start by creating a simple, intuitive initial model based on the results of the exploratory data analysis. (Note: The goal at this stage is **not** to identify the "best" possible model but rather to choose a reasonable and understandable starting point. Later you will expand and revise this model to create your final model.
+
+Based on your EDA, select *at most* 10 predictor variables from “ames_train” and create a linear model for `price` (or a transformed version of price) using those variables. Provide the *R code* and the *summary output table* for your model, a *brief justification* for the variables you have chosen, and a *brief discussion* of the model results in context (focused on the variables that appear to be important predictors and how they relate to sales price).
+
+* * *
+
+```{r fit_model}
+first.model <- lm(log(price) ~ log(area) + Overall.Qual + House.Age +log(Total.Bsmt.SF +1)+log(Garage.Area + 1)+Lot.Shape+Land.Slope+Condition.1
++Bldg.Type+Sale.Condition ,data = ames_train)
+summary(first.model)
+```
+R-square value is 0.8448 and we can see that in summary table variables like "log(area)","Bldg.Type","Overall Qual","House age","Land.Slope","log(Total.Bsmt.SF + 1)" , "log(Garage.Area + 1)" ,"Sale.Condition" has the p-value less than 0.05.
+* * *
+
+### Section 2.2 Model Selection
+
+Now either using `BAS` another stepwise selection procedure choose the "best" model you can, using your initial model as your starting point. Try at least two different model selection methods and compare their results. Do they both arrive at the same model or do they disagree? What do you think this means?
+
+* * *
+
+NOTE: Write your written response to section 2.2 here. Delete this note before you submit your work.
+
+```{r model_select}
+model.AIC <- stepAIC(first.model, k = 2)
+model.AIC$anova
+model.BIC <- stepAIC(first.model, k = log(nrow(ames_train)))
+model.BIC
+```
+There is no difference between the two models
+* * *
+
+### Section 2.3 Initial Model Residuals
+One way to assess the performance of a model is to examine the model's residuals. In the space below, create a residual plot for your preferred model from above and use it to assess whether your model appears to fit the data well. Comment on any interesting structure in the residual plot (trend, outliers, etc.) and briefly discuss potential implications it may have for your model and inference / prediction you might produce.
+
+* * *
+```{r model_resid}
+par(mfrow = c(1,2))
+plot(model.AIC)
+```
+Looking at the residual scatterplot, it seems that the residuals are distributed randomly and the are scattered around 0 horizontal line. There is also a somewhat constant variability in the plot. We do have some outliers(428,741,310) that are away from the cloud of the data.
+* * *
+
+### Section 2.4 Initial Model RMSE
+
+You can calculate it directly based on the model output. Be specific about the units of your RMSE (depending on whether you transformed your response variable). The value you report will be more meaningful if it is in the original units (dollars).
+
+* * *
+```{r model_rmse}
+# Firstly, we have to remove missing vlaues.
+ames_train <- ames_train%>%
+  filter(!is.na(area),!is.na(Total.Bsmt.SF),!is.na(Overall.Qual),!is.na(House.Age),!is.na(Sale.Condition),!is.na(Garage.Area),!is.na(Lot.Shape),!is.na(Condition.1),!is.na(Bldg.Type),!is.na(Land.Slope)) 
+predict.AIC <- exp(predict(model.AIC, ames_train))
+resid.AIC <- ames_train$price - predict.AIC
+rmse.AIC <- sqrt(mean(resid.AIC^2))
+rmse.AIC
+```
+We can see that the RMSE value for model.AIC is 33472 dollars
+* * *
+
+### Section 2.5 Overfitting 
+
+The process of building a model generally involves starting with an initial model (as you have done above), identifying its shortcomings, and adapting the model accordingly. This process may be repeated several times until the model fits the data reasonably well. However, the model may do well on training data but perform poorly out-of-sample (meaning, on a dataset other than the original training data) because the model is overly-tuned to specifically fit the training data. This is called “overfitting.” To determine whether overfitting is occurring on a model, compare the performance of a model on both in-sample and out-of-sample data sets. To look at performance of your initial model on out-of-sample data, you will use the data set `ames_test`.
+
+```{r loadtest, message = FALSE}
+load("ames_test.Rdata")
+```
+
+Use your model from above to generate predictions for the housing prices in the test data set.  Are the predictions significantly more accurate (compared to the actual sales prices) for the training data than the test data?  Why or why not? Briefly explain how you determined that (what steps or processes did you use)?
+
+* * *
+
+```{r initmodel_test}
+# Because I add a variable in "ames_train" data and model. So I am going to add the same variable in "ames_test"
+ ames_test<-ames_test%>%
+  mutate(House.Age = 2020 - Year.Built)
+  predict.AIC <- exp(predict(model.AIC, ames_test))
+resid.AIC <- ames_train$price - predict.AIC
+rmse.AIC <- sqrt(mean(resid.AIC^2))
+rmse.AIC
+```
+We can see that RMSE value is 105058.6 lower than our original data that model we set. So the model in this test data is more accurate.
+* * *
+
+**Note to the learner:** If in real-life practice this out-of-sample analysis shows evidence that the training data fits your model a lot better than the test data, it is probably a good idea to go back and revise the model (usually by simplifying the model) to reduce this overfitting. For simplicity, we do not ask you to do this on the assignment, however.
+
+## Part 3 Development of a Final Model
+
+Now that you have developed an initial model to use as a baseline, create a final model with *at most* 20 variables to predict housing prices in Ames, IA, selecting from the full array of variables in the dataset and using any of the tools that we introduced in this specialization.  
+
+Carefully document the process that you used to come up with your final model, so that you can answer the questions below.
+
+### Section 3.1 Final Model
+
+Provide the summary table for your model.
+
+* * *
+
+```{r model_playground}
+final_model <- lm(log(price) ~ log(area) + Overall.Qual + House.Age +log(Total.Bsmt.SF +1)+log(Garage.Area + 1)+Lot.Shape+Land.Slope+Condition.1+Bldg.Type+Sale.Condition+Neighborhood ,data = ames_train)
+final_model1 <- stepAIC(final_model,k=2)
+```
+
+
+```{r model_playground1}
+final_model1
+summary(final_model)
+```
+
+* * *
+
+### Section 3.2 Transformation
+
+Did you decide to transform any variables?  Why or why not? Explain in a few sentences.
+
+* * *
+
+```{r model_assess}
+ggplot(data=ames_train, aes(x=area , y=log(price),colour = "red")) +geom_point()+geom_line()
+ggplot(data=ames_train, aes(x=log(area) , y=log(price),colour = "red"))+geom_point()+geom_line()
+ggplot(data=ames_train, aes(x=Total.Bsmt.SF , y=log(price),colour = "red"))+geom_point()+geom_line()
+ggplot(data=ames_train, aes(x=log(Total.Bsmt.SF) , y=log(price),colour = "red"))+geom_point()+geom_line()
+```
+We can see that the second and the fourth plot are better liner.
+So we are not going to transform any variables
+* * *
+
+### Section 3.3 Variable Interaction
+
+Did you decide to include any variable interactions? Why or why not? Explain in a few sentences.
+
+* * *
+```{r model_inter}
+
+```
+Removing the Neighborhood feature from our base model, we saw already how all variables are moderately correlated, so we can say that we didn’t include any variable interaction.
+* * *
+
+
+### Section 3.4 Variable Selection
+
+What method did you use to select the variables you included? Why did you select the method you used? Explain in a few sentences.
+
+* * *
+
+```{r model_select}
+```
+The exploratory data analysis in this final project and some intuitive sense.This got us to final.model. Then I used AIC approach to obtain our final.model.AIC.
+* * *
+
+
+### Section 3.5 Model Testing
+
+How did testing the model on out-of-sample data affect whether or how you changed your model? Explain in a few sentences.
+
+* * *
+
+```{r model_testing}
+```
+The training set’s error is usually lower than the test set’s error and this difference is called variance. But in this case, things moved in the opposite way: the Adjusted R-Squared, a common measure for the model fit, is lower with the test set than with the training set.
+* * *
+
+
+## Part 4 Final Model Assessment
+
+### Section 4.1 Final Model Residual
+
+For your final model, create and briefly interpret an informative plot of the residuals.
+
+* * *
+```{r}
+par(mfrow = c(2,2))
+plot(final_model)
+```
+The 1st plot is the Residuals vs Fitted plot. It shows if Residuals have linear arrangement. This plot indicate a good fit for a linear model.
+
+The 2nd plot is the Normal Q-Q plot. It illustrates if residuals are normally distributed.  In this case, the residuals are normally distributed in two standard deviations range.
+
+The 3rd plot is called Scale-Location (or Spread-Location) plot. It illustrates if residuals are spread equally along the ranges of predictors. In this case, Residuals appear randomly spread.
+
+The 4th plot is the Residuals vs Leverage plot. It should help us to find influential cases.
+
+* * *
+
+### Section 4.2 Final Model RMSE
+
+For your final model, calculate and briefly comment on the RMSE.
+
+* * *
+```{r}
+predict.final.AIC <- exp(predict(final_model1, ames_train))
+resid.final.AIC <- ames_train$price - predict.final.AIC
+rmse.final.AIC <- sqrt(mean(resid.final.AIC^2))
+rmse.final.AIC
+```
+
+
+* * *
+
+### Section 4.3 Final Model Evaluation
+
+What are some strengths and weaknesses of your model?
+
+* * *
+Advantages: I think my model do not have many predicators, it is simple. It is convenient for others to use.
+Disadvantages: I think there was not clear involved for the variables selection, in EDA, we do not have a very explicit standard to guide how to choose variables.
+
+* * *
+
+### Section 4.4 Final Model Validation
+
+Testing your final model on a separate, validation data set is a great way to determine how your model will perform in real-life practice. 
+
+You will use the “ames_validation” dataset to do some additional assessment of your final model. Discuss your findings, be sure to mention:
+* What is the RMSE of your final model when applied to the validation data?  
+* How does this value compare to that of the training data and/or testing data?
+* What percentage of the 95% predictive confidence (or credible) intervals contain the true price of the house in the validation data set?  
+* From this result, does your final model properly reflect uncertainty?
+
+```{r loadvalidation, message = FALSE}
+load("ames_validation.Rdata")
+```
+
+* * *
+
+```{r model_validate}
+# Because I add a variable in "ames_train" data and model. So I am going to add the same variable in "ames_validation"
+ ames_validation<-ames_validation%>%
+  mutate(House.Age = 2020 - Year.Built)
+predict_final_AIC <- exp(predict(final_model1, ames_validation))
+resid_final_AIC <- ames_test$price - predict_final_AIC
+rmse_final_AIC <- sqrt(mean(resid_final_AIC^2))
+rmse_final_AIC
+
+predict_final_AIC_interval <- exp(predict(first.model, ames_test, interval = "prediction"))
+coverage_prob <- mean(ames_test$price >predict_final_AIC_interval [,"lwr"] &  ames_test$price < predict_final_AIC_interval[,"upr"])
+coverage_prob
+```
+1.the RMSE value is 94527.55
+2.Higher the former two.
+3.we have 97.8% predictive confidence intervals contain th true price of the house in the validation data set.
+* * *
+
+## Part 5 Conclusion
+
+Provide a brief summary of your results, and a brief discussion of what you have learned about the data and your model. 
+
+* * *
+The final result of this exercise was the final_model_AIC model.This method we do not get satisfied by one-time modeling and have to keep updating it.
+* * *
